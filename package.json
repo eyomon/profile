@@ -1,7 +1,7 @@
 {
   "dependencies": {
     "dotenv": "^16.4.5",
-    "expresss": "^0.0.0",
+    "express": "^4.19.2",
     "mongoose": "^8.5.1",
     "telegraf": "^4.16.3",
     "telegraf-session-local": "^2.1.1"

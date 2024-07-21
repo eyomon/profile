@@ -108,13 +108,13 @@ bot.start(async (ctx) => {
 
   const telegramId = ctx.from.id;
   const name = ctx.from.first_name;
-  const image = 'coin'; 
-  invitedUsers=0;
+  const image = 'ccoin'; 
+
   let user;
   try {
     user = await User.findOneAndUpdate(
       { telegramId },
-      { name, image,invitedUsers},
+      { name, image,invitedUsers:0},
       { upsert: true, new: true, setDefaultsOnInsert: true }
     );
   } catch (error) {

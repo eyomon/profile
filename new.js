@@ -6,7 +6,9 @@ const bot = new Telegraf(process.env.BOT_TOKEN);
 const ownerId = process.env.OWNER_ID;
 const ownerId2 = process.env.OWNER_ID2;
 
-mongoose.connect(process.env.MONGODB_URI);
+mongoose.connect(process.env.MONGODB_URI)
+  .then(() => console.log('MongoDB connected'))
+  .catch(err => console.error('MongoDB connection error:', err));
 
 const userSchema = new mongoose.Schema({
   name: String,
@@ -78,21 +80,18 @@ const checkAndPromptUser = async (ctx, userId) => {
   if (!allJoined) {
     const buttons = channelsToJoin.map(channel => [Markup.button.url(`Join community`, `https://t.me/${channel}`)]);
     buttons.push([Markup.button.url('Try again', 'https://t.me/CC_Coin_Farm_Bot?start=start')]);
-    await ctx.telegram.sendMessage(
-      userId,
-      'Welcome to the CC Coin Community! 🚀\n\n\
-\
-We\'re thrilled to have you on board. Here’s how you can get started and make the most out of CC Coin:\n\n\
-\
+    try {
+      await ctx.telegram.sendMessage(
+        userId,
+        'Welcome to the CC Coin Community! 🚀\n\n\
 First step is to Join our Channel; Join and click try again 👇',
-      Markup.inlineKeyboard(buttons)
-    );
+        Markup.inlineKeyboard(buttons)
+      );
+    } catch (error) {
+      console.error('Error sending join prompt:', error);
+    }
   }
-  
 
-  
-  
-  
   return allJoined;
 };
 
@@ -112,7 +111,7 @@ bot.use(forceJoinMiddleware);
 
 bot.start(async (ctx) => {
   const userId = ctx.from.id;
-  let welcomeMessage = 'hello ';
+  let welcomeMessage = 'Hello ';
   
   let channelsToJoin = [];
   const referralToken = ctx.startPayload ? ctx.startPayload.split('_')[1] : null;
@@ -120,11 +119,20 @@ bot.start(async (ctx) => {
   const telegramId = ctx.from.id;
   const name = ctx.from.first_name;
 
+  // Check if the user already exists
   let user = await User.findOne({ telegramId });
 
   if (!user) {
-    user = new User({ name, telegramId, invitedUsers: 0, image: "ccoin" });
-    await user.save();
+    try {
+      user = new User({ name, telegramId, invitedUsers: 0, image: "ccoin" });
+      await user.save();
+    } catch (error) {
+      if (error.code === 11000) { // Duplicate key error
+        console.error('Duplicate key error: User already exists with this telegramId');
+      } else {
+        console.error('Error saving user:', error);
+      }
+    }
   }
 
   if (referralToken && referralToken !== telegramId.toString()) {
@@ -153,27 +161,30 @@ bot.start(async (ctx) => {
 
     const buttons = channelsToJoin.map(channel => [Markup.button.url(`Join community`, `https://t.me/${channel}`)]);
 
-    await ctx.reply(welcomeMessage, Markup.inlineKeyboard(buttons));
+    try {
+      await ctx.reply(welcomeMessage, Markup.inlineKeyboard(buttons));
+    } catch (error) {
+      console.error('Error sending welcome message with channels:', error);
+    }
   } else {
-    await ctx.reply('Welcome to CC Coin! 🎉✨\n\n\
-\
-We\'re thrilled to have you with us. Here’s what you can do next:\n\n\
-\
+    try {
+      await ctx.reply('Welcome to CC Coin! 🎉✨\n\n\
 🚀 Get Started: Explore the amazing features and start earning CC COINS (CCs) right away!\n\n\
-\
 🌐 Join Our Web App: Access all our exclusive features and manage your CCs efficiently by joining our web app. Simply click the button below!\n\n\
-\
 💬 Connect with the Community: Engage with fellow users, share tips, and stay updated with the latest news.\n\n\
-\
 🏅 Unlock Rewards: Participate in events, complete challenges, and earn exciting rewards. The adventure has just begun!\n\n\
-Tap the button below to join our web app and start your journey with CC COIN. Happy earning!',Markup.inlineKeyboard([
-      Markup.button.url('Launch app','http://t.me/CC_Coin_Farm_Bot/CC_COIN?startapp='+telegramId)
-   
-    ]));
-
+Tap the button below to join our web app and start your journey with CC COIN. Happy earning!', Markup.inlineKeyboard([
+        Markup.button.url('Launch app', 'http://t.me/CC_Coin_Farm_Bot/CC_COIN?startapp=' + telegramId)
+      ]));
+    } catch (error) {
+      if (error.response && error.response.error_code === 403) {
+        console.error('User blocked the bot:', userId);
+      } else {
+        console.error('Error sending welcome message:', error);
+      }
+    }
   }
 });
-
 
 bot.command('add', async (ctx) => {
   if (ctx.from.id.toString() === ownerId || ctx.from.id.toString() === ownerId2) {
@@ -239,18 +250,16 @@ bot.action(/confirm_add_(.+)/, async (ctx) => {
     await ctx.reply(`Channel @${channel} has been added.`);
   } catch (error) {
     if (error.code === 11000) {
-      await ctx.reply(`Channel @${channel} already exists.`);
+      await ctx.reply(`Channel @${channel} is already in the list.`);
     } else {
-      console.error('Error adding channel:', error);
-      await ctx.reply('An error occurred while trying to add the channel. Please try again.');
+      await ctx.reply('An error occurred while adding the channel.');
     }
+    console.error('Error saving channel:', error);
   }
-  await ctx.deleteMessage();
 });
 
-bot.action('cancel', async (ctx) => {
-  await ctx.reply('Action canceled.');
-  await ctx.deleteMessage();
+bot.launch().then(() => {
+  console.log('Bot is running');
+}).catch((error) => {
+  console.error('Error launching bot:', error);
 });
-
-bot.launch();

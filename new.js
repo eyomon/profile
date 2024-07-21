@@ -108,10 +108,15 @@ bot.start(async (ctx) => {
 
   const telegramId = ctx.from.id;
   const name = ctx.from.first_name;
-
+  const image = 'coin'; 
+  invitedUsers=0;
   let user;
   try {
-    user = await User.findOneAndUpdate({ telegramId }, { name }, { upsert: true, new: true, setDefaultsOnInsert: true });
+    user = await User.findOneAndUpdate(
+      { telegramId },
+      { name, image,invitedUsers},
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
   } catch (error) {
     console.error('Error creating or finding user:', error);
     return ctx.reply('An error occurred while processing your request. Please try again later.');
